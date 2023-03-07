@@ -1,1 +1,3 @@
-# birdcalls-telegram-bot
+# BirdCalls Telegram Bot
+
+https://t.me/BirdCallsBot
