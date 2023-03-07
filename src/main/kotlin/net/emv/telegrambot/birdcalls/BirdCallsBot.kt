@@ -13,7 +13,6 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.InputFile
 import org.telegram.telegrambots.meta.api.objects.Update
-import org.telegram.telegrambots.meta.api.objects.User
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
@@ -28,6 +27,7 @@ class BirdCallsBot(
     botOptions: DefaultBotOptions
 ) : TelegramLongPollingBot(botOptions, botProperties.token) {
 
+    private val supportedLanguages = setOf("ru", "en")
     private var commandsInstalled: Boolean = false
 
     override fun getBotUsername(): String {
@@ -39,7 +39,7 @@ class BirdCallsBot(
             installCommands()
         }
 
-        val locale = update.getLocale()
+        val locale = determineLocale(update.getLocale())
 
         if (update.hasMessage()) {
             if (update.message.text == Command.START) {
@@ -224,6 +224,14 @@ class BirdCallsBot(
 
     private fun birdVoiceInputStream(locale: Locale, bird: String, filename: String): InputStream {
         return Files.newInputStream(botProperties.voicesDir!!.resolve(locale.language).resolve(bird).resolve(filename))
+    }
+
+    private fun determineLocale(userLocale: Locale): Locale {
+        return if (supportedLanguages.contains(userLocale.language)) {
+            userLocale
+        } else {
+            Locale.ENGLISH
+        }
     }
 
     private object Command {
