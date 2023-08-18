@@ -18,16 +18,16 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
 import java.io.InputStream
 import java.nio.file.Files
-import java.util.Locale
+import java.nio.file.Path
+import java.util.*
+import java.util.stream.Collectors
+import kotlin.collections.ArrayList
 import kotlin.io.path.*
 
-class BirdCallsBot(
-    private val botProperties: TelegramBotProperties,
-    private val messages: Messages,
-    botOptions: DefaultBotOptions
-) : TelegramLongPollingBot(botOptions, botProperties.token) {
-
-    private val supportedLanguages = setOf("ru", "en")
+class BirdCallsBot(private val botProperties: TelegramBotProperties,
+                   private val messages: Messages,
+                   botOptions: DefaultBotOptions)
+    : TelegramLongPollingBot(botOptions, botProperties.token) {
     private var commandsInstalled: Boolean = false
 
     override fun getBotUsername(): String {
@@ -46,11 +46,11 @@ class BirdCallsBot(
                 sendTopKeyboard(update, locale)
             }
         } else if (update.hasCallbackQuery()) {
-            val birds = loadAvailableBirds(locale)
+            val birds = getAvailableBirds(locale)
 
             if (update.callbackQuery.data == CallbackCommand.SEND_VOICES) {
                 sendVoicesKeyboard(update, birds, locale)
-            } else if (birds.contains(update.callbackQuery.data)) {
+            } else if (birds.keys.contains(update.callbackQuery.data)) {
                 sendBirdVoice(update, locale)
             } else if (update.callbackQuery.data == CallbackCommand.BACK_VOICES) {
                 sendTopKeyboard(update, locale)
@@ -68,12 +68,10 @@ class BirdCallsBot(
     private fun installCommands() {
         if (commandsNotInstalled()) {
             commandsInstalled = execute(SetMyCommands().apply {
-                commands = listOf(
-                    BotCommand().apply {
-                        command = Command.START
-                        description = "Launch @" + botProperties.username
-                    }
-                )
+                commands = listOf(BotCommand().apply {
+                    command = Command.START
+                    description = "Launch @" + botProperties.username
+                })
             })
         } else {
             commandsInstalled = true
@@ -82,14 +80,10 @@ class BirdCallsBot(
 
     private fun sendTopKeyboard(update: Update, locale: Locale) {
         val keyboardMarkup = InlineKeyboardMarkup().apply {
-            keyboard = listOf(
-                listOf(
-                    InlineKeyboardButton().apply {
-                        text = Emoji.LOUD_SOUND + messages.get("bot.keyboard.voices.button.name", locale)
-                        callbackData = CallbackCommand.SEND_VOICES
-                    }
-                )
-            )
+            keyboard = listOf(listOf(InlineKeyboardButton().apply {
+                text = Emoji.LOUD_SOUND + messages.get("bot.keyboard.voices.button.name", locale)
+                callbackData = CallbackCommand.SEND_VOICES
+            }))
         }
 
         if (update.hasMessage()) {
@@ -108,16 +102,8 @@ class BirdCallsBot(
         }
     }
 
-    private fun sendVoicesKeyboard(update: Update, birds: Set<String>, locale: Locale) {
-        val birdGrid = birds.sorted()
-            .foldIndexed(ArrayList<ArrayList<String>>()) { idx, acc, it ->
-                if (idx % 3 == 0) {
-                    acc.add(ArrayList(3))
-                }
-
-                acc.last().add(it)
-                acc
-            }
+    private fun sendVoicesKeyboard(update: Update, birds: Map<String, String>, locale: Locale) {
+        val birdGrid = buildBirdAdaptiveGrid(birds)
 
         if (birds.isNotEmpty()) {
             execute(EditMessageText().apply {
@@ -128,18 +114,14 @@ class BirdCallsBot(
                     keyboard = birdGrid.map {
                         it.map {
                             InlineKeyboardButton().apply {
-                                text = Emoji.MUSICAL_NOTE + it
-                                callbackData = it
+                                text = Emoji.MUSICAL_NOTE + it.second
+                                callbackData = it.first
                             }
                         }
-                    }.plus(listOf(
-                        listOf(
-                            InlineKeyboardButton().apply {
-                                text = Emoji.BACK + messages.get("bot.keyboard.button.back.name", locale)
-                                callbackData = CallbackCommand.BACK_VOICES
-                            }
-                        ))
-                    )
+                    }.plus(listOf(listOf(InlineKeyboardButton().apply {
+                        text = Emoji.BACK + messages.get("bot.keyboard.button.back.name", locale)
+                        callbackData = CallbackCommand.BACK_VOICES
+                    })))
                 }
             })
         } else {
@@ -148,14 +130,10 @@ class BirdCallsBot(
                 messageId = update.getMessageId()
                 text = Emoji.FACE + messages.get("bot.keyboard.voices.empty", locale)
                 replyMarkup = InlineKeyboardMarkup().apply {
-                    keyboard = listOf(
-                        listOf(
-                            InlineKeyboardButton().apply {
-                                text = Emoji.BACK + messages.get("bot.keyboard.button.back.name", locale)
-                                callbackData = CallbackCommand.BACK_VOICES
-                            }
-                        )
-                    )
+                    keyboard = listOf(listOf(InlineKeyboardButton().apply {
+                        text = Emoji.BACK + messages.get("bot.keyboard.button.back.name", locale)
+                        callbackData = CallbackCommand.BACK_VOICES
+                    }))
                 }
             })
         }
@@ -166,20 +144,22 @@ class BirdCallsBot(
         val filenames = loadBirdVoiceFilenames(locale, bird)
 
         val keyboardReply = InlineKeyboardMarkup().apply {
-            keyboard = listOf(
-                listOf(
-                    InlineKeyboardButton().apply {
-                        text = Emoji.BACK + messages.get("bot.keyboard.button.back.name", locale)
-                        callbackData = CallbackCommand.BACK_BIRD_VOICE
-                    }
-                )
-            )
+            keyboard = listOf(listOf(InlineKeyboardButton().apply {
+                text = Emoji.BACK + messages.get("bot.keyboard.button.back.name", locale)
+                callbackData = CallbackCommand.BACK_BIRD_VOICE
+            }))
         }
 
         if (filenames.isNotEmpty()) {
             val filename = filenames.random()
 
             removeCallbackMessage(update)
+
+            execute(SendMessage().apply {
+                chatId = update.getChatId()
+                text = Emoji.BIRD + translateBirdName(locale, bird)
+            })
+
             birdVoiceInputStream(locale, bird, filename).use {
                 execute(SendVoice().apply {
                     chatId = update.getChatId()
@@ -209,29 +189,79 @@ class BirdCallsBot(
         })
     }
 
-    private fun loadAvailableBirds(locale: Locale): Set<String> {
-        return botProperties.voicesDir!!.resolve(locale.language).listDirectoryEntries()
-            .filter { it.isDirectory() }
-            .map { it.name }
-            .toSet()
+    private fun getAvailableBirds(locale: Locale): Map<String, String> {
+        if (locale == Locale.ENGLISH) {
+            return botProperties.birds.keys.stream().collect(Collectors.toMap({ it }, { it }))
+        }
+
+        return botProperties.birds.entries.stream()
+                .filter { it.value[locale.language] != null }
+                .collect(Collectors.toMap({ it.key }, { it.value[locale.language]!! }))
+    }
+
+    private fun translateBirdName(locale: Locale, name: String): String {
+        return if (locale != Locale.ENGLISH) {
+            botProperties.birds[name]!![locale.language]!!
+        } else {
+            name
+        }
     }
 
     private fun loadBirdVoiceFilenames(locale: Locale, bird: String): List<String> {
-        return botProperties.voicesDir!!.resolve(locale.language).resolve(bird).listDirectoryEntries()
-            .filter { it.isRegularFile() }
-            .map { it.fileName.name }
+        return getBirdDir(locale, bird).listDirectoryEntries()
+                .filter { it.isRegularFile() }
+                .map { it.fileName.name }
     }
 
     private fun birdVoiceInputStream(locale: Locale, bird: String, filename: String): InputStream {
-        return Files.newInputStream(botProperties.voicesDir!!.resolve(locale.language).resolve(bird).resolve(filename))
+        return Files.newInputStream(getBirdDir(locale, bird).resolve(filename))
+    }
+
+    private fun getBirdDir(locale: Locale, bird: String): Path {
+        val dir = bird.lowercase(locale).replace(" ", "_")
+        return BirdCallsBot::class.java.getResource("/birds/$dir")!!.toURI().toPath()
+    }
+
+    private fun buildBirdAdaptiveGrid(birds: Map<String, String>): Array<Array<Pair<String, String>>> {
+        val sortedBirds = birds.entries.stream()
+                .sorted(Comparator.comparing { it.value })
+                .map { Pair(it.key, it.value) }
+                .collect(Collectors.toList())
+
+        val grid = mutableListOf<Array<Pair<String, String>>>()
+        val row = mutableListOf<Pair<String, String>>()
+
+        val iterator = sortedBirds.iterator()
+        while (iterator.hasNext()) {
+            val pair = iterator.next()
+
+            val len = pair.second.length
+            val sum = row.stream().mapToInt { it.second.length }.sum()
+
+            if (len + sum > 23) {
+                grid.add(row.toTypedArray())
+                row.clear()
+            }
+
+            row.add(pair)
+        }
+
+        return grid.toTypedArray()
     }
 
     private fun determineLocale(userLocale: Locale): Locale {
-        return if (supportedLanguages.contains(userLocale.language)) {
+        return if (getAvailableLocales().contains(userLocale.language)) {
             userLocale
         } else {
             Locale.ENGLISH
         }
+    }
+
+    private fun getAvailableLocales(): Set<String> {
+        return botProperties.birds.values.stream()
+                .map { it.keys }
+                .flatMap { it.stream() }
+                .collect(Collectors.toSet())
     }
 
     private object Command {
@@ -252,9 +282,5 @@ class BirdCallsBot(
         val FACE: String = EmojiParser.parseToUnicode(":face_with_monocle: ")
         val MUSICAL_NOTE: String = EmojiParser.parseToUnicode(":musical_note: ")
         val PENCIL: String = EmojiParser.parseToUnicode(":pencil2: ")
-    }
-
-    companion object {
-        private val log: Logger = LoggerFactory.getLogger(BirdCallsBot::class.java)
     }
 }
