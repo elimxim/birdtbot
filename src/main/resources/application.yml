@@ -1,3 +1,6 @@
+server:
+  port: ${PORT}
+
 telegram:
   bot:
     username: "BirdCallsBot"
