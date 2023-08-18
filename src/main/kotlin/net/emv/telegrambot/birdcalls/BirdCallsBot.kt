@@ -219,7 +219,7 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
 
     private fun getBirdDir(locale: Locale, bird: String): Path {
         val dir = bird.lowercase(locale).replace(" ", "_")
-        return BirdCallsBot::class.java.getResource("/birds/$dir")!!.toURI().toPath()
+        return this::class.java.classLoader.getResource("birds/$dir")!!.toURI().toPath()
     }
 
     private fun buildBirdAdaptiveGrid(birds: Map<String, String>): Array<Array<Pair<String, String>>> {
