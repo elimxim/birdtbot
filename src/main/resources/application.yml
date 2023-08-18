@@ -4,7 +4,7 @@ server:
 telegram:
   bot:
     username: "BirdCallsBot"
-    token: $BOT_TOKEN
+    token: ${BOT_TOKEN}
     birds:
       "[Mallard]":
         "de": "Stockente"
