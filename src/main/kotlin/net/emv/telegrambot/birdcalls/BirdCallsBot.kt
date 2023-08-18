@@ -17,6 +17,9 @@ import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
 import java.io.InputStream
+import java.net.URI
+import java.nio.file.FileSystem
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
@@ -208,18 +211,23 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
     }
 
     private fun loadBirdVoiceFilenames(locale: Locale, bird: String): List<String> {
-        return getBirdDir(locale, bird).listDirectoryEntries()
-                .filter { it.isRegularFile() }
-                .map { it.fileName.name }
+        val birdDir = determineBirdDirName(locale, bird)
+        val resource = this::class.java.classLoader.getResource("birds/$birdDir")!!
+        val resourceParts = resource.toString().split("!")
+        FileSystems.newFileSystem(URI.create(resourceParts[0]), mutableMapOf<String, Any>()).use { fs ->
+            return fs.getPath(resourceParts[1] + resourceParts[2]).listDirectoryEntries()
+                    .filter { it.isRegularFile() }
+                    .map { it.fileName.name }
+        }
     }
 
     private fun birdVoiceInputStream(locale: Locale, bird: String, filename: String): InputStream {
-        return Files.newInputStream(getBirdDir(locale, bird).resolve(filename))
+        val birdDir = determineBirdDirName(locale, bird)
+        return this::class.java.classLoader.getResourceAsStream("birds/$birdDir/$filename")!!
     }
 
-    private fun getBirdDir(locale: Locale, bird: String): Path {
-        val dir = bird.lowercase(locale).replace(" ", "_")
-        return this::class.java.classLoader.getResource("birds/$dir")!!.toURI().toPath()
+    private fun determineBirdDirName(locale: Locale, bird: String): String {
+        return bird.lowercase(locale).replace(" ", "_")
     }
 
     private fun buildBirdAdaptiveGrid(birds: Map<String, String>): Array<Array<Pair<String, String>>> {
@@ -282,5 +290,9 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
         val FACE: String = EmojiParser.parseToUnicode(":face_with_monocle: ")
         val MUSICAL_NOTE: String = EmojiParser.parseToUnicode(":musical_note: ")
         val PENCIL: String = EmojiParser.parseToUnicode(":pencil2: ")
+    }
+
+    companion object {
+        private val log: Logger = LoggerFactory.getLogger(BirdCallsBot::class.java)
     }
 }
