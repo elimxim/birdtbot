@@ -1,1 +1,1 @@
-worker: java $JAVA_OPTS -jar -Dserver.port=$PORT build/libs/birdcalls-telegram-bot-1.0.jar
+worker: java -Dserver.port=$PORT -jar build/libs/birdcalls-telegram-bot-1.0.jar
