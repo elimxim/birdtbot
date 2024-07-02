@@ -1,4 +1,4 @@
-package net.emv.telegrambot.birdcalls
+package com.github.elimxim.birdtbot
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean

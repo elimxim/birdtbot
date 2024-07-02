@@ -2,6 +2,7 @@ telegram:
   bot:
     username: "BirdCallsBot"
     token: ${BOT_TOKEN}
+    sounds-dir: ${SOUNDS_DIR}
     birds:
       "[Mallard]":
         "de": "Stockente"

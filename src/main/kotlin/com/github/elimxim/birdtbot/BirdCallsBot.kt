@@ -1,4 +1,4 @@
-package net.emv.telegrambot.birdcalls
+package com.github.elimxim.birdtbot
 
 import com.vdurmont.emoji.EmojiParser
 import org.slf4j.Logger
@@ -17,20 +17,16 @@ import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
 import java.io.InputStream
-import java.net.URI
-import java.nio.file.FileSystem
-import java.nio.file.FileSystems
 import java.nio.file.Files
-import java.nio.file.Path
 import java.util.*
 import java.util.stream.Collectors
-import kotlin.collections.ArrayList
 import kotlin.io.path.*
 
-class BirdCallsBot(private val botProperties: TelegramBotProperties,
-                   private val messages: Messages,
-                   botOptions: DefaultBotOptions)
-    : TelegramLongPollingBot(botOptions, botProperties.token) {
+class BirdCallsBot(
+    private val botProperties: TelegramBotProperties,
+    private val messages: Messages,
+    botOptions: DefaultBotOptions
+) : TelegramLongPollingBot(botOptions, botProperties.token) {
     private var commandsInstalled: Boolean = false
 
     override fun getBotUsername(): String {
@@ -198,8 +194,8 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
         }
 
         return botProperties.birds.entries.stream()
-                .filter { it.value[locale.language] != null }
-                .collect(Collectors.toMap({ it.key }, { it.value[locale.language]!! }))
+            .filter { it.value[locale.language] != null }
+            .collect(Collectors.toMap({ it.key }, { it.value[locale.language]!! }))
     }
 
     private fun translateBirdName(locale: Locale, name: String): String {
@@ -212,18 +208,14 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
 
     private fun loadBirdVoiceFilenames(locale: Locale, bird: String): List<String> {
         val birdDir = determineBirdDirName(locale, bird)
-        val resource = this::class.java.classLoader.getResource("birds/$birdDir")!!
-        val resourceParts = resource.toString().split("!")
-        FileSystems.newFileSystem(URI.create(resourceParts[0]), mutableMapOf<String, Any>()).use { fs ->
-            return fs.getPath(resourceParts[1] + resourceParts[2]).listDirectoryEntries()
-                    .filter { it.isRegularFile() }
-                    .map { it.fileName.name }
-        }
+        return botProperties.soundsDir!!.resolve(birdDir).listDirectoryEntries()
+            .filter { it.isRegularFile() }
+            .map { it.fileName.name }
     }
 
     private fun birdVoiceInputStream(locale: Locale, bird: String, filename: String): InputStream {
         val birdDir = determineBirdDirName(locale, bird)
-        return this::class.java.classLoader.getResourceAsStream("birds/$birdDir/$filename")!!
+        return Files.newInputStream(botProperties.soundsDir!!.resolve(birdDir).resolve(filename))
     }
 
     private fun determineBirdDirName(locale: Locale, bird: String): String {
@@ -232,9 +224,9 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
 
     private fun buildBirdAdaptiveGrid(birds: Map<String, String>): Array<Array<Pair<String, String>>> {
         val sortedBirds = birds.entries.stream()
-                .sorted(Comparator.comparing { it.value })
-                .map { Pair(it.key, it.value) }
-                .collect(Collectors.toList())
+            .sorted(Comparator.comparing { it.value })
+            .map { Pair(it.key, it.value) }
+            .collect(Collectors.toList())
 
         val grid = mutableListOf<Array<Pair<String, String>>>()
         val row = mutableListOf<Pair<String, String>>()
@@ -267,9 +259,9 @@ class BirdCallsBot(private val botProperties: TelegramBotProperties,
 
     private fun getAvailableLocales(): Set<String> {
         return botProperties.birds.values.stream()
-                .map { it.keys }
-                .flatMap { it.stream() }
-                .collect(Collectors.toSet())
+            .map { it.keys }
+            .flatMap { it.stream() }
+            .collect(Collectors.toSet())
     }
 
     private object Command {

@@ -1,4 +1,4 @@
-package net.emv.telegrambot.birdcalls
+package com.github.elimxim.birdtbot
 
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component

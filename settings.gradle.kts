@@ -1,5 +1,5 @@
-rootProject.name = "birdcalls-telegram-bot"
+rootProject.name = "birdtbot"
 gradle.rootProject {
-    group = "net.emv"
-    version = "1.0"
+    group = "com.github.elimxim"
+    version = "1.1"
 }
