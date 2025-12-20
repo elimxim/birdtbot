@@ -1,10 +1,10 @@
 # BirdCalls Telegram Bot
 
-A simple bot for Telegram that provides bird sounds.
+Displays a keyboard with bird sounds and sends a voice message when pressed.
 
 > https://t.me/BirdCallsBot
 
-Sounds taken from [xeno-canto.org](https://xeno-canto.org/)
+The sounds are taken from [xeno-canto.org](https://xeno-canto.org/)
 
 ## Possible further tasks
 
